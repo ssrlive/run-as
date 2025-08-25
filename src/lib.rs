@@ -40,6 +40,12 @@ mod impl_unix;
 #[cfg(windows)]
 mod impl_windows;
 
+#[cfg(unix)]
+pub use crate::impl_unix::is_elevated;
+
+#[cfg(windows)]
+pub use crate::impl_windows::is_elevated;
+
 /// A process builder for elevated execution
 pub struct Command {
     command: OsString,

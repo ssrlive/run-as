@@ -90,3 +90,29 @@ pub fn runas_impl(cmd: &Command) -> io::Result<ExitStatus> {
         )))
     }
 }
+
+/// Check if the current process is running with elevated privileges.
+pub fn is_elevated() -> bool {
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::Security::TOKEN_QUERY;
+    use windows_sys::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TokenElevation};
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    let mut token: HANDLE = 0 as HANDLE;
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return false;
+    }
+    let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+    let mut ret_len = 0;
+    let res = unsafe {
+        GetTokenInformation(
+            token,
+            TokenElevation,
+            &mut elevation as *mut _ as *mut _,
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut ret_len,
+        )
+    };
+    unsafe { CloseHandle(token) };
+    res != 0 && elevation.TokenIsElevated != 0
+}

@@ -1,5 +1,6 @@
 #[cfg(windows)]
 fn main() {
+    println!("Is elevated: {}", runas::is_elevated());
     println!("Running whoami /priv");
     println!(
         "Status: {}",
@@ -16,6 +17,7 @@ fn main() {
 
 #[cfg(unix)]
 fn main() {
+    println!("Is elevated: {}", runas::is_elevated());
     println!("Running id");
     println!(
         "Status: {}",

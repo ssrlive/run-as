@@ -1,6 +1,11 @@
 use crate::Command;
 use std::io::{Error, ErrorKind::NotFound};
 
+/// Check if the current process is running with elevated privileges.
+pub fn is_elevated() -> bool {
+    unsafe { libc::geteuid() == 0 }
+}
+
 pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     if cmd.gui {
         match which::which("pkexec") {
