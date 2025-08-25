@@ -1,34 +1,34 @@
-use std::io;
-use std::process;
-use std::process::ExitStatus;
-
 use crate::Command;
+use std::io::{Error, ErrorKind::NotFound};
 
-pub fn runas_impl(cmd: &Command) -> io::Result<ExitStatus> {
+pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     if cmd.gui {
         match which::which("pkexec") {
             Ok(_) => {
-                let mut c = process::Command::new("pkexec");
+                let mut c = std::process::Command::new("pkexec");
                 c.arg(&cmd.command).args(&cmd.args[..]).status()
             }
-            Err(_) => Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "Command `pkexec` not found",
-            )),
+            Err(e) => Err(Error::new(NotFound, format!("`pkexec` not found: '{e}'"))),
         }
     } else {
-        match which::which("sudo") {
-            Ok(_) => {
-                let mut c = process::Command::new("sudo");
-                if cmd.force_prompt {
+        let mut executor = None;
+        if which::which("sudo").is_ok() {
+            executor = Some("sudo");
+        }
+        // Detect if doas is installed and prefer using sudo
+        if executor.is_none() && which::which("doas").is_ok() {
+            executor = Some("doas");
+        }
+        match executor {
+            Some(exec) => {
+                let mut c = std::process::Command::new(exec);
+                if exec == "sudo" && cmd.force_prompt {
+                    // Forces password re-prompting
                     c.arg("-k");
                 }
                 c.arg("--").arg(&cmd.command).args(&cmd.args[..]).status()
             }
-            Err(_) => Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "Command `sudo` not found",
-            )),
+            None => Err(Error::new(NotFound, "Commands sudo or doas not found!")),
         }
     }
 }
