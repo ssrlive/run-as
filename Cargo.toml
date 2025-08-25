@@ -8,17 +8,17 @@ homepage = "https://github.com/mitsuhiko/rust-runas"
 license = "Apache-2.0"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.70"
 
 [dependencies]
-which = "4.3.0"
+which = "8.0.0"
 
-[target."cfg(target_os=\"macos\")".dependencies]
-security-framework-sys = "2.9.0"
-libc = "0.2.144"
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2.175"
+security-framework-sys = "2.14.0"
 
-[target."cfg(windows)".dependencies]
-windows-sys = { version = "0.48.0", features = [
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60.2", features = [
     "Win32_Foundation",
     "Win32_System_Com",
     "Win32_System_Registry",

@@ -1,5 +1,3 @@
-use runas;
-
 #[cfg(windows)]
 fn main() {
     println!("Running whoami /priv");

@@ -6,6 +6,7 @@ use std::os::windows::ffi::OsStrExt;
 use std::process::ExitStatus;
 use std::ptr;
 
+use windows_sys::Win32::Foundation::HANDLE;
 use windows_sys::Win32::System::Com::{
     CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE,
 };
@@ -21,12 +22,14 @@ use crate::Command;
 
 unsafe fn win_runas(cmd: *const c_ushort, args: *const c_ushort, show: bool) -> u32 {
     let mut code = 0;
-    let mut sei: SHELLEXECUTEINFOW = mem::zeroed();
+    let mut sei: SHELLEXECUTEINFOW = unsafe { mem::zeroed() };
     let verb = "runas\0".encode_utf16().collect::<Vec<u16>>();
-    CoInitializeEx(
-        ptr::null(),
-        COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE,
-    );
+    unsafe {
+        CoInitializeEx(
+            ptr::null(),
+            (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32,
+        )
+    };
 
     sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_NOCLOSEPROCESS;
     sei.cbSize = mem::size_of::<SHELLEXECUTEINFOW>() as _;
@@ -35,13 +38,13 @@ unsafe fn win_runas(cmd: *const c_ushort, args: *const c_ushort, show: bool) -> 
     sei.lpParameters = args;
     sei.nShow = if show { SW_NORMAL } else { SW_HIDE } as _;
 
-    if ShellExecuteExW(&mut sei) == 0 || sei.hProcess == 0 {
+    if unsafe { ShellExecuteExW(&mut sei) } == 0 || sei.hProcess == 0 as HANDLE {
         return !0;
     }
 
-    WaitForSingleObject(sei.hProcess, INFINITE);
+    unsafe { WaitForSingleObject(sei.hProcess, INFINITE) };
 
-    if GetExitCodeProcess(sei.hProcess, &mut code) == 0 {
+    if unsafe { GetExitCodeProcess(sei.hProcess, &mut code) } == 0 {
         !0
     } else {
         code
@@ -53,7 +56,7 @@ pub fn runas_impl(cmd: &Command) -> io::Result<ExitStatus> {
     for arg in cmd.args.iter() {
         let arg = arg.to_string_lossy();
         params.push(' ');
-        if arg.len() == 0 {
+        if arg.is_empty() {
             params.push_str("\"\"");
         } else if arg.find(&[' ', '\t', '"'][..]).is_none() {
             params.push_str(&arg);
@@ -80,7 +83,7 @@ pub fn runas_impl(cmd: &Command) -> io::Result<ExitStatus> {
         .collect::<Vec<_>>();
 
     unsafe {
-        Ok(mem::transmute(win_runas(
+        Ok(mem::transmute::<u32, std::process::ExitStatus>(win_runas(
             file.as_ptr(),
             params.as_ptr(),
             !cmd.hide,

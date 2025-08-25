@@ -53,31 +53,35 @@ unsafe fn gui_runas(prog: *const i8, argv: *const *const i8) -> i32 {
     let mut authref: AuthorizationRef = ptr::null_mut();
     let mut pipe: *mut libc::FILE = ptr::null_mut();
 
-    if AuthorizationCreate(
-        ptr::null(),
-        ptr::null(),
-        kAuthorizationFlagDefaults,
-        &mut authref,
-    ) != errAuthorizationSuccess
+    if unsafe {
+        AuthorizationCreate(
+            ptr::null(),
+            ptr::null(),
+            kAuthorizationFlagDefaults,
+            &mut authref,
+        )
+    } != errAuthorizationSuccess
     {
         return -1;
     }
-    if AuthorizationExecuteWithPrivileges(
-        authref,
-        prog,
-        kAuthorizationFlagDefaults,
-        argv as *const *mut _,
-        &mut pipe,
-    ) != errAuthorizationSuccess
+    if unsafe {
+        AuthorizationExecuteWithPrivileges(
+            authref,
+            prog,
+            kAuthorizationFlagDefaults,
+            argv as *const *mut _,
+            &mut pipe,
+        )
+    } != errAuthorizationSuccess
     {
-        AuthorizationFree(authref, kAuthorizationFlagDestroyRights);
+        unsafe { AuthorizationFree(authref, kAuthorizationFlagDestroyRights) };
         return -1;
     }
 
-    let pid = fcntl(fileno(pipe), F_GETOWN, 0);
+    let pid = unsafe { fcntl(fileno(pipe), F_GETOWN, 0) };
     let mut status = 0;
     loop {
-        let r = waitpid(pid, &mut status, 0);
+        let r = unsafe { waitpid(pid, &mut status, 0) };
         if r == -1 && io::Error::last_os_error().raw_os_error() == Some(EINTR) {
             continue;
         } else {
@@ -85,7 +89,7 @@ unsafe fn gui_runas(prog: *const i8, argv: *const *const i8) -> i32 {
         }
     }
 
-    AuthorizationFree(authref, kAuthorizationFlagDestroyRights);
+    unsafe { AuthorizationFree(authref, kAuthorizationFlagDestroyRights) };
     status
 }
 

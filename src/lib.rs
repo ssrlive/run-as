@@ -80,7 +80,6 @@ impl Command {
     }
 
     /// Add multiple arguments to pass to the program.
-
     pub fn args<S: AsRef<OsStr>>(&mut self, args: &[S]) -> &mut Command {
         for arg in args {
             self.arg(arg);

@@ -1,5 +1,3 @@
-use runas;
-
 fn shell() -> String {
     #[cfg(windows)]
     {
