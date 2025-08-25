@@ -1,20 +1,15 @@
-use std::env;
 use std::ffi::{CString, OsString};
-use std::io;
-use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use std::process::ExitStatus;
 use std::ptr;
 
 use libc::{EINTR, F_GETOWN, fcntl, fileno, waitpid};
 use security_framework_sys::authorization::{
-    AuthorizationCreate, AuthorizationExecuteWithPrivileges, AuthorizationFree, AuthorizationRef,
-    errAuthorizationSuccess, kAuthorizationFlagDefaults, kAuthorizationFlagDestroyRights,
+    AuthorizationCreate, AuthorizationExecuteWithPrivileges, AuthorizationFree, AuthorizationRef, errAuthorizationSuccess,
+    kAuthorizationFlagDefaults, kAuthorizationFlagDestroyRights,
 };
 
 use crate::Command;
-use crate::impl_unix::runas_impl as runas_sudo_impl;
 
 fn find_exe<P: AsRef<Path>>(exe_name: P) -> Option<PathBuf> {
     let exe_name = exe_name.as_ref().as_os_str();
@@ -24,15 +19,11 @@ fn find_exe<P: AsRef<Path>>(exe_name: P) -> Option<PathBuf> {
         }
     }
 
-    env::var_os("PATH").and_then(|paths| {
-        env::split_paths(&paths)
+    std::env::var_os("PATH").and_then(|paths| {
+        std::env::split_paths(&paths)
             .filter_map(|dir| {
                 let full_path = dir.join(exe_name);
-                if full_path.is_file() {
-                    Some(full_path)
-                } else {
-                    None
-                }
+                if full_path.is_file() { Some(full_path) } else { None }
             })
             .next()
     })
@@ -43,7 +34,7 @@ macro_rules! make_cstring {
         match CString::new($s.as_bytes()) {
             Ok(s) => s,
             Err(_) => {
-                return Err(io::Error::new(io::ErrorKind::Other, "null byte in string"));
+                return Err(std::io::Error::other("null byte in string"));
             }
         }
     };
@@ -53,27 +44,11 @@ unsafe fn gui_runas(prog: *const i8, argv: *const *const i8) -> i32 {
     let mut authref: AuthorizationRef = ptr::null_mut();
     let mut pipe: *mut libc::FILE = ptr::null_mut();
 
-    if unsafe {
-        AuthorizationCreate(
-            ptr::null(),
-            ptr::null(),
-            kAuthorizationFlagDefaults,
-            &mut authref,
-        )
-    } != errAuthorizationSuccess
-    {
+    if unsafe { AuthorizationCreate(ptr::null(), ptr::null(), kAuthorizationFlagDefaults, &mut authref) } != errAuthorizationSuccess {
         return -1;
     }
-    if unsafe {
-        AuthorizationExecuteWithPrivileges(
-            authref,
-            prog,
-            kAuthorizationFlagDefaults,
-            argv as *const *mut _,
-            &mut pipe,
-        )
-    } != errAuthorizationSuccess
-    {
+    let status = unsafe { AuthorizationExecuteWithPrivileges(authref, prog, kAuthorizationFlagDefaults, argv as *const *mut _, &mut pipe) };
+    if status != errAuthorizationSuccess {
         unsafe { AuthorizationFree(authref, kAuthorizationFlagDestroyRights) };
         return -1;
     }
@@ -82,7 +57,7 @@ unsafe fn gui_runas(prog: *const i8, argv: *const *const i8) -> i32 {
     let mut status = 0;
     loop {
         let r = unsafe { waitpid(pid, &mut status, 0) };
-        if r == -1 && io::Error::last_os_error().raw_os_error() == Some(EINTR) {
+        if r == -1 && std::io::Error::last_os_error().raw_os_error() == Some(EINTR) {
             continue;
         } else {
             break;
@@ -93,12 +68,10 @@ unsafe fn gui_runas(prog: *const i8, argv: *const *const i8) -> i32 {
     status
 }
 
-fn runas_gui_impl(cmd: &Command) -> io::Result<ExitStatus> {
+fn runas_gui_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     let exe: OsString = match find_exe(&cmd.command) {
         Some(exe) => exe.into(),
-        None => unsafe {
-            return Ok(mem::transmute(!0));
-        },
+        None => return Ok(unsafe { std::mem::transmute(!0) }),
     };
     let prog = make_cstring!(exe);
     let mut args = vec![];
@@ -108,13 +81,13 @@ fn runas_gui_impl(cmd: &Command) -> io::Result<ExitStatus> {
     let mut argv: Vec<_> = args.iter().map(|x| x.as_ptr()).collect();
     argv.push(ptr::null());
 
-    unsafe { Ok(mem::transmute(gui_runas(prog.as_ptr(), argv.as_ptr()))) }
+    Ok(unsafe { std::mem::transmute(gui_runas(prog.as_ptr(), argv.as_ptr())) })
 }
 
-pub fn runas_impl(cmd: &Command) -> io::Result<ExitStatus> {
+pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     if cmd.gui {
         runas_gui_impl(cmd)
     } else {
-        runas_sudo_impl(cmd)
+        crate::impl_unix::runas_impl(cmd)
     }
 }

@@ -1,15 +1,9 @@
 use std::ffi::OsStr;
-use std::io;
-use std::mem;
 use std::os::raw::c_ushort;
 use std::os::windows::ffi::OsStrExt;
-use std::process::ExitStatus;
-use std::ptr;
 
-use windows_sys::Win32::Foundation::HANDLE;
-use windows_sys::Win32::System::Com::{
-    COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx,
-};
+use windows_sys::Win32::Foundation::FALSE;
+use windows_sys::Win32::System::Com::{COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx};
 use windows_sys::Win32::System::Threading::GetExitCodeProcess;
 use windows_sys::Win32::System::Threading::INFINITE;
 use windows_sys::Win32::System::Threading::WaitForSingleObject;
@@ -20,38 +14,32 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_NORMAL};
 
 use crate::Command;
 
-unsafe fn win_runas(cmd: *const c_ushort, args: *const c_ushort, show: bool) -> u32 {
+unsafe fn win_runas(cmd: *const c_ushort, args: *const c_ushort, show: bool) -> std::io::Result<u32> {
     let mut code = 0;
-    let mut sei: SHELLEXECUTEINFOW = unsafe { mem::zeroed() };
+    let mut sei: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
     let verb = "runas\0".encode_utf16().collect::<Vec<u16>>();
-    unsafe {
-        CoInitializeEx(
-            ptr::null(),
-            (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32,
-        )
-    };
+    unsafe { CoInitializeEx(std::ptr::null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32) };
 
     sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_NOCLOSEPROCESS;
-    sei.cbSize = mem::size_of::<SHELLEXECUTEINFOW>() as _;
+    sei.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as _;
     sei.lpVerb = verb.as_ptr();
     sei.lpFile = cmd;
     sei.lpParameters = args;
     sei.nShow = if show { SW_NORMAL } else { SW_HIDE } as _;
 
-    if unsafe { ShellExecuteExW(&mut sei) } == 0 || sei.hProcess == 0 as HANDLE {
-        return !0;
+    if unsafe { ShellExecuteExW(&mut sei) } == FALSE || sei.hProcess == std::ptr::null_mut() {
+        return Err(std::io::Error::last_os_error());
     }
 
     unsafe { WaitForSingleObject(sei.hProcess, INFINITE) };
 
-    if unsafe { GetExitCodeProcess(sei.hProcess, &mut code) } == 0 {
-        !0
-    } else {
-        code
+    if unsafe { GetExitCodeProcess(sei.hProcess, &mut code) } == FALSE {
+        return Err(std::io::Error::last_os_error());
     }
+    Ok(code)
 }
 
-pub fn runas_impl(cmd: &Command) -> io::Result<ExitStatus> {
+pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     let mut params = String::new();
     for arg in cmd.args.iter() {
         let arg = arg.to_string_lossy();
@@ -73,46 +61,28 @@ pub fn runas_impl(cmd: &Command) -> io::Result<ExitStatus> {
         }
     }
 
-    let file = OsStr::new(&cmd.command)
-        .encode_wide()
-        .chain(Some(0))
-        .collect::<Vec<_>>();
-    let params = OsStr::new(&params)
-        .encode_wide()
-        .chain(Some(0))
-        .collect::<Vec<_>>();
+    let file = OsStr::new(&cmd.command).encode_wide().chain(Some(0)).collect::<Vec<_>>();
+    let params = OsStr::new(&params).encode_wide().chain(Some(0)).collect::<Vec<_>>();
 
-    unsafe {
-        Ok(mem::transmute::<u32, std::process::ExitStatus>(win_runas(
-            file.as_ptr(),
-            params.as_ptr(),
-            !cmd.hide,
-        )))
-    }
+    let status = unsafe { win_runas(file.as_ptr(), params.as_ptr(), !cmd.hide)? };
+    Ok(unsafe { std::mem::transmute::<u32, std::process::ExitStatus>(status) })
 }
 
 /// Check if the current process is running with elevated privileges.
 pub fn is_elevated() -> bool {
-    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
-    use windows_sys::Win32::Security::TOKEN_QUERY;
-    use windows_sys::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TokenElevation};
+    use windows_sys::Win32::Foundation::{CloseHandle, FALSE};
+    use windows_sys::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation};
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    use windows_sys::core::BOOL;
 
-    let mut token: HANDLE = 0 as HANDLE;
-    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+    let mut token = std::ptr::null_mut();
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == FALSE {
         return false;
     }
     let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+    let len = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
     let mut ret_len = 0;
-    let res = unsafe {
-        GetTokenInformation(
-            token,
-            TokenElevation,
-            &mut elevation as *mut _ as *mut _,
-            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
-            &mut ret_len,
-        )
-    };
+    let res: BOOL = unsafe { GetTokenInformation(token, TokenElevation, &mut elevation as *mut _ as *mut _, len, &mut ret_len) };
     unsafe { CloseHandle(token) };
-    res != 0 && elevation.TokenIsElevated != 0
+    res != FALSE && elevation.TokenIsElevated != 0
 }

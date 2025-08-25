@@ -6,34 +6,42 @@ pub fn is_elevated() -> bool {
     unsafe { libc::geteuid() == 0 }
 }
 
+const PKEXEC: &str = "pkexec";
+const SUDO: &str = "sudo";
+const DOAS: &str = "doas";
+
+/// Execute a command with elevated privileges using `pkexec`, `sudo`, or `doas`.
 pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     if cmd.gui {
-        match which::which("pkexec") {
+        #[cfg(all(unix, target_os = "linux"))]
+        match which::which(PKEXEC) {
             Ok(_) => {
-                let mut c = std::process::Command::new("pkexec");
-                c.arg(&cmd.command).args(&cmd.args[..]).status()
+                let mut child = std::process::Command::new(PKEXEC);
+                child.arg(&cmd.command).args(&cmd.args[..]).status()
             }
-            Err(e) => Err(Error::new(NotFound, format!("`pkexec` not found: '{e}'"))),
+            Err(e) => Err(Error::new(NotFound, format!("Command {PKEXEC} not found: '{e}'"))),
         }
+        #[cfg(all(unix, not(target_os = "linux")))]
+        Err(Error::new(NotFound, format!("Command {PKEXEC} not found on non-Linux OS")))
     } else {
         let mut executor = None;
-        if which::which("sudo").is_ok() {
-            executor = Some("sudo");
+        if which::which(SUDO).is_ok() {
+            executor = Some(SUDO);
         }
         // Detect if doas is installed and prefer using sudo
-        if executor.is_none() && which::which("doas").is_ok() {
-            executor = Some("doas");
+        if executor.is_none() && which::which(DOAS).is_ok() {
+            executor = Some(DOAS);
         }
         match executor {
             Some(exec) => {
-                let mut c = std::process::Command::new(exec);
-                if exec == "sudo" && cmd.force_prompt {
+                let mut child = std::process::Command::new(exec);
+                if exec == SUDO && cmd.force_prompt {
                     // Forces password re-prompting
-                    c.arg("-k");
+                    child.arg("-k");
                 }
-                c.arg("--").arg(&cmd.command).args(&cmd.args[..]).status()
+                child.arg("--").arg(&cmd.command).args(&cmd.args[..]).status()
             }
-            None => Err(Error::new(NotFound, "Commands sudo or doas not found!")),
+            None => Err(Error::new(NotFound, format!("Commands {SUDO} or {DOAS} not found!"))),
         }
     }
 }
