@@ -7,14 +7,14 @@ use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 use std::ptr;
 
-use libc::{fcntl, fileno, waitpid, EINTR, F_GETOWN};
+use libc::{EINTR, F_GETOWN, fcntl, fileno, waitpid};
 use security_framework_sys::authorization::{
-    errAuthorizationSuccess, kAuthorizationFlagDefaults, kAuthorizationFlagDestroyRights,
     AuthorizationCreate, AuthorizationExecuteWithPrivileges, AuthorizationFree, AuthorizationRef,
+    errAuthorizationSuccess, kAuthorizationFlagDefaults, kAuthorizationFlagDestroyRights,
 };
 
-use crate::impl_unix::runas_impl as runas_sudo_impl;
 use crate::Command;
+use crate::impl_unix::runas_impl as runas_sudo_impl;
 
 fn find_exe<P: AsRef<Path>>(exe_name: P) -> Option<PathBuf> {
     let exe_name = exe_name.as_ref().as_os_str();
