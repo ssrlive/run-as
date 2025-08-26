@@ -5,17 +5,18 @@ on: [push]
 jobs:
   build-latest:
     name: Test on Latest
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-      - name: Test
-        run: make test
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt -- --check
+      - run: cargo clippy --all-features -- -D warnings
+      - run: cargo build --all-features
+      - run: cargo test --all-features
 
   build-stable-linux:
     name: Build on 1.85.0 Linux
@@ -28,7 +29,7 @@ jobs:
           toolchain: 1.85.0
           profile: minimal
           override: true
-      - name: Test
+      - name: Check
         run: cargo check --all-features
 
   build-stable-mac:
@@ -42,7 +43,7 @@ jobs:
           toolchain: 1.85.0
           profile: minimal
           override: true
-      - name: Test
+      - name: Check
         run: cargo check --all-features
 
   build-stable-win:
@@ -56,5 +57,5 @@ jobs:
           toolchain: 1.85.0
           profile: minimal
           override: true
-      - name: Test
+      - name: Check
         run: cargo check --all-features

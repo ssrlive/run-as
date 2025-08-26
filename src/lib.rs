@@ -14,7 +14,7 @@
 //! OS X if the GUI mode is used.
 //!
 //! ```rust,no_run
-//! use runas::Command;
+//! use run_as::Command;
 //!
 //! let status = Command::new("rm")
 //!     .arg("/usr/local/my-app")
@@ -61,7 +61,7 @@ pub struct Command {
 /// Example:
 ///
 /// ```rust,no_run
-/// use runas::Command;
+/// use run_as::Command;
 /// let status = Command::new("cmd").status();
 /// ```
 impl Command {

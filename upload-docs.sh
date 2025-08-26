@@ -10,15 +10,15 @@ git init
 cp -r ../target/doc/* .
 cat <<EOF > index.html
 <!doctype html>
-<title>runas</title>
-<meta http-equiv="refresh" content="0; ./runas/">
+<title>run-as</title>
+<meta http-equiv="refresh" content="0; ./run-as/">
 EOF
 
 # Add, commit and push files
 git add -f --all .
 git commit -m "Built documentation"
 git checkout -b gh-pages
-git remote add origin git@github.com:mitsuhiko/rust-runas.git
+git remote add origin git@github.com:ssrlive/run-as.git
 git push -qf origin gh-pages
 
 # Cleanup

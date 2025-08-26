@@ -1,14 +1,17 @@
 [package]
-name = "runas"
-version = "1.2.0"
-authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
+name = "run-as"
+version = "1.2.1"
+authors = ["ssrlive", "Armin Ronacher <armin.ronacher@active-4.com>"]
 keywords = ["runas", "sudo", "elevate", "elevated"]
-description = "Run a command as root (sudo)"
-homepage = "https://github.com/mitsuhiko/rust-runas"
+description = "Run a command as root (sudo), fork from runas crate"
+homepage = "https://github.com/ssrlive/run-as"
 license = "Apache-2.0"
 readme = "README.md"
 edition = "2024"
 rust-version = "1.85"
+
+[lib]
+name = "run_as"
 
 [dependencies]
 which = "8.0.0"

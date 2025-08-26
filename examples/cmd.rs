@@ -13,7 +13,7 @@ fn main() {
     println!("Starting a root shell:");
     println!(
         "Status: {}",
-        runas::Command::new(shell())
+        run_as::Command::new(shell())
             .wait_to_complete(true)
             .status()
             .expect("failed to execute")

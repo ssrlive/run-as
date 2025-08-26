@@ -1,10 +1,10 @@
 #[cfg(windows)]
 fn main() {
-    println!("Is elevated: {}", runas::is_elevated());
+    println!("Is elevated: {}", run_as::is_elevated());
     println!("Running whoami /priv");
     println!(
         "Status: {}",
-        runas::Command::new("cmd")
+        run_as::Command::new("cmd")
             .arg("/k")
             .arg("whoami")
             .arg("/priv")
@@ -18,11 +18,11 @@ fn main() {
 
 #[cfg(unix)]
 fn main() {
-    println!("Is elevated: {}", runas::is_elevated());
+    println!("Is elevated: {}", run_as::is_elevated());
     println!("Running id");
     println!(
         "Status: {}",
-        runas::Command::new("id")
+        run_as::Command::new("id")
             .gui(false)
             .wait_to_complete(true)
             .force_prompt(false)
