@@ -14,7 +14,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_NORMAL};
 
 use crate::Command;
 
-unsafe fn win_runas(cmd: *const c_ushort, args: *const c_ushort, show: bool) -> std::io::Result<u32> {
+unsafe fn win_runas(cmd: *const c_ushort, args: *const c_ushort, show: bool, wait: bool) -> std::io::Result<u32> {
     let mut code = 0;
     let mut sei: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
     let verb = "runas\0".encode_utf16().collect::<Vec<u16>>();
@@ -27,14 +27,16 @@ unsafe fn win_runas(cmd: *const c_ushort, args: *const c_ushort, show: bool) -> 
     sei.lpParameters = args;
     sei.nShow = if show { SW_NORMAL } else { SW_HIDE } as _;
 
-    if unsafe { ShellExecuteExW(&mut sei) } == FALSE || sei.hProcess == std::ptr::null_mut() {
+    if unsafe { ShellExecuteExW(&mut sei) } == FALSE || sei.hProcess.is_null() {
         return Err(std::io::Error::last_os_error());
     }
 
-    unsafe { WaitForSingleObject(sei.hProcess, INFINITE) };
+    if wait {
+        unsafe { WaitForSingleObject(sei.hProcess, INFINITE) };
 
-    if unsafe { GetExitCodeProcess(sei.hProcess, &mut code) } == FALSE {
-        return Err(std::io::Error::last_os_error());
+        if unsafe { GetExitCodeProcess(sei.hProcess, &mut code) } == FALSE {
+            return Err(std::io::Error::last_os_error());
+        }
     }
     Ok(code)
 }
@@ -64,8 +66,9 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     let file = OsStr::new(&cmd.command).encode_wide().chain(Some(0)).collect::<Vec<_>>();
     let params = OsStr::new(&params).encode_wide().chain(Some(0)).collect::<Vec<_>>();
 
-    let status = unsafe { win_runas(file.as_ptr(), params.as_ptr(), !cmd.hide)? };
-    Ok(unsafe { std::mem::transmute::<u32, std::process::ExitStatus>(status) })
+    let status = unsafe { win_runas(file.as_ptr(), params.as_ptr(), !cmd.hide, cmd.wait_to_complete)? };
+    use std::os::windows::process::ExitStatusExt;
+    Ok(std::process::ExitStatus::from_raw(status))
 }
 
 /// Check if the current process is running with elevated privileges.

@@ -10,6 +10,7 @@ fn main() {
             .arg("/priv")
             .gui(true)
             .force_prompt(false)
+            .wait_to_complete(true)
             .status()
             .expect("failed to execute")
     );
@@ -23,6 +24,7 @@ fn main() {
         "Status: {}",
         runas::Command::new("id")
             .gui(false)
+            .wait_to_complete(true)
             .force_prompt(false)
             .status()
             .expect("failed to execute")

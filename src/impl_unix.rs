@@ -1,5 +1,6 @@
 use crate::Command;
 use std::io::{Error, ErrorKind::NotFound};
+use std::os::unix::process::ExitStatusExt;
 
 /// Check if the current process is running with elevated privileges.
 pub fn is_elevated() -> bool {
@@ -17,7 +18,12 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
         match which::which(PKEXEC) {
             Ok(_) => {
                 let mut child = std::process::Command::new(PKEXEC);
-                child.arg(&cmd.command).args(&cmd.args[..]).status()
+                child.arg(&cmd.command).args(&cmd.args[..]);
+                if cmd.wait_to_complete {
+                    child.status()
+                } else {
+                    child.spawn().map(|_| std::process::ExitStatus::from_raw(0))
+                }
             }
             Err(e) => Err(Error::new(NotFound, format!("Command {PKEXEC} not found: '{e}'"))),
         }
@@ -39,7 +45,12 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
                     // Forces password re-prompting
                     child.arg("-k");
                 }
-                child.arg("--").arg(&cmd.command).args(&cmd.args[..]).status()
+                child.arg("--").arg(&cmd.command).args(&cmd.args[..]);
+                if cmd.wait_to_complete {
+                    child.status()
+                } else {
+                    child.spawn().map(|_| std::process::ExitStatus::from_raw(0))
+                }
             }
             None => Err(Error::new(NotFound, format!("Commands {SUDO} or {DOAS} not found!"))),
         }

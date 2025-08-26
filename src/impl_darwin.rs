@@ -40,7 +40,7 @@ macro_rules! make_cstring {
     };
 }
 
-unsafe fn gui_runas(prog: *const i8, argv: *const *const i8) -> i32 {
+unsafe fn gui_runas(prog: *const i8, argv: *const *const i8, wait: bool) -> i32 {
     let mut authref: AuthorizationRef = ptr::null_mut();
     let mut pipe: *mut libc::FILE = ptr::null_mut();
 
@@ -55,23 +55,26 @@ unsafe fn gui_runas(prog: *const i8, argv: *const *const i8) -> i32 {
 
     let pid = unsafe { fcntl(fileno(pipe), F_GETOWN, 0) };
     let mut status = 0;
-    loop {
-        let r = unsafe { waitpid(pid, &mut status, 0) };
-        if r == -1 && std::io::Error::last_os_error().raw_os_error() == Some(EINTR) {
-            continue;
-        } else {
-            break;
+    if wait {
+        loop {
+            let r = unsafe { waitpid(pid, &mut status, 0) };
+            if r == -1 && std::io::Error::last_os_error().raw_os_error() == Some(EINTR) {
+                continue;
+            } else {
+                break;
+            }
         }
     }
 
     unsafe { AuthorizationFree(authref, kAuthorizationFlagDestroyRights) };
-    status
+    if wait { status } else { 0 }
 }
 
 fn runas_gui_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
+    use std::io::{Error, ErrorKind::NotFound};
     let exe: OsString = match find_exe(&cmd.command) {
         Some(exe) => exe.into(),
-        None => return Ok(unsafe { std::mem::transmute(!0) }),
+        None => return Err(Error::new(NotFound, format!("Executable not found: {:?}", cmd.command))),
     };
     let prog = make_cstring!(exe);
     let mut args = vec![];
@@ -80,8 +83,9 @@ fn runas_gui_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
     }
     let mut argv: Vec<_> = args.iter().map(|x| x.as_ptr()).collect();
     argv.push(ptr::null());
-
-    Ok(unsafe { std::mem::transmute(gui_runas(prog.as_ptr(), argv.as_ptr())) })
+    let r = unsafe { gui_runas(prog.as_ptr(), argv.as_ptr(), cmd.wait_to_complete) };
+    use std::os::unix::process::ExitStatusExt;
+    Ok(std::process::ExitStatus::from_raw(r))
 }
 
 pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {

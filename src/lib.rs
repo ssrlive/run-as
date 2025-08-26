@@ -52,6 +52,7 @@ pub struct Command {
     force_prompt: bool,
     hide: bool,
     gui: bool,
+    wait_to_complete: bool,
 }
 
 /// The `Command` type acts as a process builder for spawning programs that run in
@@ -75,6 +76,7 @@ impl Command {
             hide: false,
             gui: false,
             force_prompt: true,
+            wait_to_complete: true,
         }
     }
 
@@ -114,6 +116,14 @@ impl Command {
     /// on unix platforms to not prompt for a password.
     pub fn force_prompt(&mut self, val: bool) -> &mut Command {
         self.force_prompt = val;
+        self
+    }
+
+    /// Controls whether to wait for the command to complete.  The default is to wait.
+    /// If set to false the command is started and the function returns immediately.
+    /// The exit status in that case is always reported as success.
+    pub fn wait_to_complete(&mut self, val: bool) -> &mut Command {
+        self.wait_to_complete = val;
         self
     }
 

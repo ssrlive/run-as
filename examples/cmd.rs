@@ -11,5 +11,11 @@ fn shell() -> String {
 
 fn main() {
     println!("Starting a root shell:");
-    println!("Status: {}", runas::Command::new(shell()).status().expect("failed to execute"));
+    println!(
+        "Status: {}",
+        runas::Command::new(shell())
+            .wait_to_complete(true)
+            .status()
+            .expect("failed to execute")
+    );
 }
