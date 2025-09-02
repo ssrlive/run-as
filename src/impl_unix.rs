@@ -22,6 +22,37 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
                 if cmd.wait_to_complete {
                     child.status()
                 } else {
+                    // FIXME: The non-blocking calling to `pkexec` will be killed by parent process while it exiting.
+                    // This issue must be fixed in the future. But for now, I'm not find out how to solve it yet.
+
+                    use std::os::unix::process::CommandExt;
+
+                    // Create new process group and session for complete detachment
+                    // child.process_group(0);
+
+                    unsafe {
+                        child.pre_exec(|| {
+                            // Create a new process group (detach from parent's process group)
+                            // if libc::setpgid(0, 0) == -1 {
+                            //     return Err(std::io::Error::last_os_error());
+                            // }
+
+                            // Create a new session (this automatically creates a new process group too)
+                            if libc::setsid() == -1 {
+                                return Err(std::io::Error::last_os_error());
+                            }
+
+                            // Ignore hangup signal to survive terminal closure
+                            libc::signal(libc::SIGHUP, libc::SIG_IGN);
+
+                            Ok(())
+                        });
+                    }
+
+                    // Redirect stdin, stdout, stderr to /dev/null to prevent blocking
+                    use std::process::Stdio;
+                    child.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+
                     child.spawn().map(|_| std::process::ExitStatus::from_raw(0))
                 }
             }
@@ -49,6 +80,26 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
                 if cmd.wait_to_complete {
                     child.status()
                 } else {
+                    use std::os::unix::process::CommandExt;
+
+                    unsafe {
+                        child.pre_exec(|| {
+                            // Create a new session (this automatically creates a new process group too)
+                            if libc::setsid() == -1 {
+                                return Err(std::io::Error::last_os_error());
+                            }
+
+                            // Ignore hangup signal to survive terminal closure
+                            libc::signal(libc::SIGHUP, libc::SIG_IGN);
+
+                            Ok(())
+                        });
+                    }
+
+                    // Redirect stdin, stdout, stderr to /dev/null to prevent blocking
+                    use std::process::Stdio;
+                    child.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+
                     child.spawn().map(|_| std::process::ExitStatus::from_raw(0))
                 }
             }

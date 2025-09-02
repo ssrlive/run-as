@@ -38,6 +38,9 @@ mod impl_darwin;
 mod impl_unix;
 #[cfg(windows)]
 mod impl_windows;
+mod restart_self;
+
+pub use crate::restart_self::{restart_self, restart_self_elevated};
 
 #[cfg(unix)]
 pub use crate::impl_unix::is_elevated;
@@ -87,9 +90,13 @@ impl Command {
     }
 
     /// Add multiple arguments to pass to the program.
-    pub fn args<S: AsRef<OsStr>>(&mut self, args: &[S]) -> &mut Command {
+    pub fn args<I, S>(&mut self, args: I) -> &mut Command
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
         for arg in args {
-            self.arg(arg);
+            self.arg(arg.as_ref());
         }
         self
     }
