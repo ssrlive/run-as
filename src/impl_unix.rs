@@ -17,8 +17,18 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
         #[cfg(all(unix, target_os = "linux"))]
         match which::which(PKEXEC) {
             Ok(_) => {
+                // xhost +SI:localuser:root
+                std::process::Command::new("xhost").arg("+SI:localuser:root").status()?;
+
                 let mut child = std::process::Command::new(PKEXEC);
+
+                // pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY /home/my/gui-app/main-exe
+                child.arg("env");
+                child.arg(format!("DISPLAY={}", std::env::var("DISPLAY").unwrap_or_default()));
+                child.arg(format!("XAUTHORITY={}", std::env::var("XAUTHORITY").unwrap_or_default()));
+
                 child.arg(&cmd.command).args(&cmd.args[..]);
+
                 if cmd.wait_to_complete {
                     child.status()
                 } else {
