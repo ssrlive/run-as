@@ -18,6 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check if this is already a restarted instance
     if args.len() > 1 && args[1] == "--restarted" {
         log::info!("[Restarted] This is the restarted instance!");
+        log::info!("[Restarted] SUDO_USER={}", std::env::var("SUDO_USER").unwrap_or_default());
         log::info!("[Restarted] Waiting 5 seconds before exit...");
         thread::sleep(Duration::from_secs(5));
         return Ok(());
@@ -28,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         log::info!("[Elevated] This is the elevated instance!");
         #[cfg(unix)]
         log::info!("[Elevated] Current user ID: {}", unsafe { libc::getuid() });
+        log::info!("[Elevated] SUDO_USER={}", std::env::var("SUDO_USER").unwrap_or_default());
         log::info!("[Elevated] Waiting 5 seconds before exit...");
         thread::sleep(Duration::from_secs(5));
         return Ok(());
