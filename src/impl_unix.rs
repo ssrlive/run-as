@@ -22,7 +22,7 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
 
                 let mut child = std::process::Command::new(PKEXEC);
 
-                // pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY SUDO_USER=$USER /home/my/gui-app/main-exe
+                // pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY SUDO_USER=$USER HOME=$HOME /home/my/gui-app/main-exe
                 child.arg("env");
                 _ = std::env::var("DISPLAY").map(|display| {
                     if !display.is_empty() {
@@ -37,6 +37,11 @@ pub fn runas_impl(cmd: &Command) -> std::io::Result<std::process::ExitStatus> {
                 _ = std::env::var("USER").map(|user| {
                     if !user.is_empty() {
                         child.arg(format!("SUDO_USER={user}"));
+                    }
+                });
+                _ = std::env::var("HOME").map(|home| {
+                    if !home.is_empty() {
+                        child.arg(format!("HOME={home}"));
                     }
                 });
 
