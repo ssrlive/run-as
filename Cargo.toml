@@ -1,6 +1,6 @@
 [package]
 name = "run-as"
-version = "1.2.3"
+version = "1.2.4"
 authors = ["ssrlive", "Armin Ronacher <armin.ronacher@active-4.com>"]
 keywords = ["runas", "sudo", "elevate", "elevated"]
 description = "Run a command as root (sudo), fork from runas crate"
