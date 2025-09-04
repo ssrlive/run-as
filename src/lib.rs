@@ -48,6 +48,9 @@ pub use crate::impl_unix::is_elevated;
 #[cfg(windows)]
 pub use crate::impl_windows::is_elevated;
 
+#[cfg(target_os = "linux")]
+pub(crate) const PKEXEC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// A process builder for elevated execution
 pub struct Command {
     command: OsString,
@@ -56,6 +59,8 @@ pub struct Command {
     hide: bool,
     gui: bool,
     wait_to_complete: bool,
+    #[cfg(target_os = "linux")]
+    pkexec_timeout: Option<std::time::Duration>,
 }
 
 /// The `Command` type acts as a process builder for spawning programs that run in
@@ -73,13 +78,17 @@ impl Command {
     /// The default configuration is to spawn without arguments, to be visible and
     /// to not be launched from a GUI context.
     pub fn new<S: AsRef<OsStr>>(program: S) -> Command {
+        let command = program.as_ref().to_os_string();
+        log::debug!("Command::new {command:?}");
         Command {
-            command: program.as_ref().to_os_string(),
+            command,
             args: vec![],
             hide: false,
             gui: false,
             force_prompt: true,
             wait_to_complete: true,
+            #[cfg(target_os = "linux")]
+            pkexec_timeout: Some(PKEXEC_TIMEOUT),
         }
     }
 
@@ -131,6 +140,13 @@ impl Command {
     /// The exit status in that case is always reported as success.
     pub fn wait_to_complete(&mut self, val: bool) -> &mut Command {
         self.wait_to_complete = val;
+        self
+    }
+
+    /// Sets the timeout for pkexec on Linux.
+    #[cfg(target_os = "linux")]
+    pub fn pkexec_timeout(&mut self, val: Option<std::time::Duration>) -> &mut Command {
+        self.pkexec_timeout = val;
         self
     }
 

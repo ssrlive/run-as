@@ -111,11 +111,11 @@ pub fn restart_self(args: Option<Vec<String>>, wait_to_complete: bool) -> std::i
 /// use run_as::restart_self_elevated;
 ///
 /// // Non-blocking restart with elevated privileges (command line mode)
-/// restart_self_elevated(None, false, false)?;
+/// restart_self_elevated(None, false, false, None)?;
 ///
 /// // Blocking restart with elevated privileges (GUI mode, with additional arguments)
 /// let args = vec!["--elevated".to_string()];
-/// if let Some(status) = restart_self_elevated(Some(args), true, true)? {
+/// if let Some(status) = restart_self_elevated(Some(args), true, true, None)? {
 ///     println!("Elevated process exited with: {:?}", status);
 /// }
 /// # Ok::<(), std::io::Error>(())
@@ -124,6 +124,7 @@ pub fn restart_self_elevated(
     args: Option<Vec<String>>,
     gui: bool,
     wait_to_complete: bool,
+    _pkexec_timeout: Option<std::time::Duration>,
 ) -> std::io::Result<Option<std::process::ExitStatus>> {
     if crate::is_elevated() {
         // Already elevated, no need to restart
@@ -145,6 +146,9 @@ pub fn restart_self_elevated(
     if let Some(extra_args) = args {
         command.args(&extra_args);
     }
+
+    #[cfg(target_os = "linux")]
+    command.pkexec_timeout(_pkexec_timeout);
 
     // Execute command
     let status = command.status()?;

@@ -9,34 +9,36 @@ use std::thread;
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+
     let args: Vec<String> = env::args().collect();
 
-    println!("Program started, arguments: {:?}", args);
+    log::debug!("Program started, arguments: {:?}", args);
 
     // Check if this is already a restarted instance
     if args.len() > 1 && args[1] == "--restarted" {
-        println!("This is the restarted instance!");
-        println!("Waiting 5 seconds before exit...");
+        log::info!("[Restarted] This is the restarted instance!");
+        log::info!("[Restarted] Waiting 5 seconds before exit...");
         thread::sleep(Duration::from_secs(5));
         return Ok(());
     }
 
     // Check if this is already an elevated instance
     if args.len() > 1 && args[1] == "--elevated" {
-        println!("This is the elevated instance!");
+        log::info!("[Elevated] This is the elevated instance!");
         #[cfg(unix)]
-        println!("Current user ID: {}", unsafe { libc::getuid() });
-        println!("Waiting 5 seconds before exit...");
+        log::info!("[Elevated] Current user ID: {}", unsafe { libc::getuid() });
+        log::info!("[Elevated] Waiting 5 seconds before exit...");
         thread::sleep(Duration::from_secs(5));
         return Ok(());
     }
 
-    println!("Choose operation:");
-    println!("1. Normal restart (non-blocking)");
-    println!("2. Restart with elevated privileges (non-blocking)");
-    println!("3. Restart and wait for completion (blocking)");
-    println!("4. Restart with elevated privileges and wait (blocking)");
-    println!("Please enter your choice (1, 2, 3, or 4):");
+    log::info!("Choose operation:");
+    log::info!("1. Normal restart (non-blocking)");
+    log::info!("2. Restart with elevated privileges (non-blocking)");
+    log::info!("3. Restart and wait for completion (blocking)");
+    log::info!("4. Restart with elevated privileges and wait (blocking)");
+    log::info!("Please enter your choice (1, 2, 3, or 4):");
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
@@ -44,82 +46,84 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match choice {
         "1" => {
-            println!("Restarting program (non-blocking)...");
+            log::info!("Restarting program (non-blocking)...");
             let args = vec!["--restarted".to_string()];
 
             // Non-blocking restart
             match restart_self(Some(args), false) {
                 Ok(None) => {
-                    println!("Program restarted successfully (non-blocking).");
-                    println!("Child process is now running independently.");
-                    println!("Original program will exit in 2 seconds...");
+                    log::info!("Program restarted successfully (non-blocking).");
+                    log::info!("Child process is now running independently.");
+                    log::info!("Original program will exit in 2 seconds...");
                     thread::sleep(Duration::from_secs(2));
                 }
                 Ok(Some(_)) => {
-                    println!("Unexpected: received exit status for non-blocking restart");
+                    log::warn!("Unexpected: received exit status for non-blocking restart");
                 }
                 Err(e) => {
-                    eprintln!("Non-blocking restart failed: {e}");
+                    log::error!("Non-blocking restart failed: {e}");
                 }
             }
         }
         "2" => {
-            println!("Restarting program with elevated privileges...");
+            log::info!("Restarting program with elevated privileges...");
             let args = vec!["--elevated".to_string()];
 
             // Non-blocking restart with elevated privileges
-            match restart_self_elevated(Some(args), true, false) {
+            match restart_self_elevated(Some(args), true, false, None) {
                 Ok(None) => {
-                    println!("Program restarted with elevated privileges (non-blocking)!");
-                    println!("Original program will exit in 10 seconds...");
+                    log::info!("Program restarted with elevated privileges (non-blocking)!");
+                    log::info!("Original program will exit in 10 seconds...");
                     thread::sleep(Duration::from_secs(10));
                 }
                 Ok(Some(_)) => {
-                    println!("Unexpected: received exit status for non-blocking elevated restart");
+                    log::warn!("Unexpected: received exit status for non-blocking elevated restart");
                 }
                 Err(e) => {
-                    eprintln!("Elevated restart failed: {e}");
+                    log::error!("Elevated restart failed: {e}");
                 }
             }
         }
         "3" => {
-            println!("Restarting program and waiting for completion (blocking)...");
+            log::info!("Restarting program and waiting for completion (blocking)...");
             let args = vec!["--restarted".to_string()];
 
             // Blocking restart - wait for the new process to complete
             match restart_self(Some(args), true) {
                 Ok(Some(status)) => {
-                    println!("Restarted process completed with status: {:?}", status);
+                    log::info!("Restarted process completed with status: {:?}", status);
                 }
                 Ok(None) => {
-                    println!("This should not happen with wait_to_complete=true");
+                    log::warn!("This should not happen with wait_to_complete=true");
                 }
                 Err(e) => {
-                    eprintln!("Blocking restart failed: {e}");
+                    log::error!("Blocking restart failed: {e}");
                 }
             }
         }
         "4" => {
-            println!("Restarting program with elevated privileges and waiting for completion...");
+            log::info!("Restarting program with elevated privileges and waiting for completion...");
             let args = vec!["--elevated".to_string()];
 
             // Blocking restart with elevated privileges
-            match restart_self_elevated(Some(args), true, true) {
+            match restart_self_elevated(Some(args), true, true, None) {
                 Ok(Some(status)) => {
-                    println!("Elevated process completed with status: {:?}", status);
+                    log::info!("Elevated process completed with status: {:?}", status);
                 }
                 Ok(None) => {
-                    println!("This should not happen with wait_to_complete=true");
+                    log::warn!("This should not happen with wait_to_complete=true");
                 }
                 Err(e) => {
-                    eprintln!("Elevated blocking restart failed: {e}");
+                    log::error!("Elevated blocking restart failed: {e}");
                 }
             }
         }
         _ => {
-            println!("Invalid choice");
+            log::warn!("Invalid choice");
         }
     }
+
+    log::info!("Original program exiting.");
 
     Ok(())
 }

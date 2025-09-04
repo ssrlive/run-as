@@ -14,6 +14,7 @@ rust-version = "1.85"
 name = "run_as"
 
 [dependencies]
+log = "0.4.27"
 which = "8.0.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -33,3 +34,6 @@ windows-sys = { version = "0.60.2", features = [
     "Win32_Security",
     "Win32_System_WindowsProgramming",
 ] }
+
+[dev-dependencies]
+env_logger = "0.11.8"
